@@ -4,6 +4,7 @@ import * as uuid from 'uuid'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { TodoItem } from '../models/TodoItem'
 import { TodoUpdate } from '../models/TodoUpdate';
+import {PageTodoItem} from "../models/PageTodoItem";
 const bucketName = process.env.ATTACHMENT_S3_BUCKET
 const urlExpiration = process.env.SIGNED_URL_EXPIRATION
 const XAWS = AWSXRay.captureAWS(AWS)
@@ -18,16 +19,23 @@ export class TodosAccess {
         private readonly toDoTable = process.env.TODOS_TABLE) {
     }
 
-    async getTodosForUser(userId: String): Promise<TodoItem[]> {
-        const result = await this.docClient.query({
+    async getTodosForUser(userId: String, limit: number, nextPage: any): Promise<PageTodoItem> {
+        const params = {
             TableName: this.toDoTable,
+            Limit: limit,
             KeyConditionExpression: 'userId = :userId',
             ExpressionAttributeValues: {
                 ':userId': userId
-            }
-        }).promise()
+            }}
+        if (nextPage != undefined)
+            params['ExclusiveStartKey'] = nextPage
+        const result = await this.docClient.query(params).promise()
+
         const items = result.Items
-        return items as TodoItem[];
+        return{
+            items: items as TodoItem[],
+            nextPage: result.LastEvaluatedKey
+        }
     }
 
     async createTodosForUser(todoItem: TodoItem): Promise<TodoItem> {
@@ -90,6 +98,31 @@ export class TodosAccess {
         }
         return await this.docClient.update(params).promise();
     }
+
+    async parseLimitParam(event: any, limitDefault: number) {
+        const limitStr = queryParameter(event, 'limit')
+        if (!limitStr)
+            return Promise.resolve(undefined)
+        const limit = parseInt(limitStr, limitDefault)
+        if (limit <= 0)
+            throw new Error("The limitation must be greater than zero")
+        return limit
+    }
+
+    async parseNextPage(event: any) {
+        const nextPageStr = queryParameter(event,'nextPage')
+        if(!nextPageStr)
+            return Promise.resolve(undefined)
+        const decodeURI = decodeURIComponent(nextPageStr)
+        return JSON.parse(decodeURI)
+    }
+}
+
+function queryParameter(event: any, name: string) {
+    const query = event.queryStringParameters
+    if(!query)
+        return Promise.resolve(undefined)
+    return query[name]
 }
 
 function createDynamoDBClient() {
