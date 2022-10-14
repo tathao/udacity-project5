@@ -11,7 +11,8 @@ import {
   Icon,
   Input,
   Image,
-  Loader
+  Loader,
+  Pagination
 } from 'semantic-ui-react'
 
 import { createTodo, deleteTodo, getTodos, patchTodo } from '../api/todos-api'
@@ -26,14 +27,18 @@ interface TodosProps {
 interface TodosState {
   todos: Todo[]
   newTodoName: string
-  loadingTodos: boolean
+  loadingTodos: boolean,
+  limit: number,
+  nextPage: string
 }
 
 export class Todos extends React.PureComponent<TodosProps, TodosState> {
   state: TodosState = {
     todos: [],
     newTodoName: '',
-    loadingTodos: true
+    loadingTodos: true,
+    limit: 5,
+    nextPage: ''
   }
 
   handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,6 +47,19 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
 
   onEditButtonClick = (todoId: string) => {
     this.props.history.push(`/todos/${todoId}/edit`)
+  }
+
+  onNextClick = async () => {
+    this.setState({
+      loadingTodos : true
+    })
+    const result = await getTodos(this.props.auth.getIdToken(),this.state.nextPage)
+      this.setState({
+        todos: result.items,
+        nextPage: result.nextPage,
+        loadingTodos: false
+      })
+      console.log(this.state.nextPage)
   }
 
   onTodoCreate = async (event: React.ChangeEvent<HTMLButtonElement>) => {
@@ -91,11 +109,14 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
 
   async componentDidMount() {
     try {
-      const todos = await getTodos(this.props.auth.getIdToken())
+      console.log(this.state.nextPage)
+      const result = await getTodos(this.props.auth.getIdToken(),this.state.nextPage)
       this.setState({
-        todos,
+        todos: result.items,
+        nextPage: result.nextPage,
         loadingTodos: false
       })
+      console.log(this.state)
     } catch (e) {
       alert(`Failed to fetch todos: ${(e as Error).message}`)
     }
@@ -104,34 +125,62 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   render() {
     return (
       <div>
-        <Header as="h1">TODOs</Header>
+        <Header as="h1"></Header>
 
         {this.renderCreateTodoInput()}
 
         {this.renderTodos()}
+        {this.renderPagination()}
       </div>
+    )
+  }
+
+
+  paginationExamplePagination = () => (
+    <Pagination defaultActivePage={5} totalPages={10} />
+  )
+
+  renderPagination() {
+    return (
+      <Grid.Row>
+        <Grid.Column width={16}>
+        {
+        (this.state.nextPage == '' || this.state.nextPage == null) 
+        ? <div></div> : <Button icon color='blue' labelPosition='right'
+        onClick={() => this.onNextClick()}
+        >
+          Next
+          <Icon name='caret right' />
+        </Button>
+        
+        }
+        </Grid.Column>
+        <Grid.Column width={16}>
+          <Divider />
+        </Grid.Column>
+      </Grid.Row>
     )
   }
 
   renderCreateTodoInput() {
     return (
       <Grid.Row>
-        <Grid.Column width={16}>
+        <Grid.Column width={15}>
           <Input
             action={{
               color: 'teal',
               labelPosition: 'left',
               icon: 'add',
-              content: 'New task',
+              content: 'Add Task',
               onClick: this.onTodoCreate
             }}
             fluid
             actionPosition="left"
-            placeholder="To change the world..."
+            placeholder="Input Text Here..."
             onChange={this.handleNameChange}
           />
         </Grid.Column>
-        <Grid.Column width={16}>
+        <Grid.Column width={15}>
           <Divider />
         </Grid.Column>
       </Grid.Row>

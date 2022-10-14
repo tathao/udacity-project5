@@ -3,12 +3,13 @@ import { CreateTodoRequest } from '../requests/CreateTodoRequest'
 import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
 import * as uuid from 'uuid'
 import { TodosAccess } from '../dataLayer/todosAcess';
+import {PageTodoItem} from "../models/PageTodoItem";
 
 const todosAccess = new TodosAccess();
 
 // TODO: Implement businessLogic
-export const getTodosForUser = async (userId: String): Promise<TodoItem[]> => {
-    return todosAccess.getTodosForUser(userId);
+export const getTodosForUser = async (userId: String, limit: number, nextPage: any): Promise<PageTodoItem> => {
+    return todosAccess.getTodosForUser(userId, limit, nextPage);
 }
 
 export async function createTodo(
@@ -40,5 +41,18 @@ export async function updateTodo(updateTodoRequest: UpdateTodoRequest, todoId: s
 
 export async function attachURL(todoId: string, userId: string) {
     return await  todosAccess.attachURL(todoId, userId)
+}
+
+export async function parseLimitParam(event: any, limitDefault: number) {
+    return await todosAccess.parseLimitParam(event, limitDefault)
+}
+
+export async function parseNextPageParam(event: any) {
+    return await todosAccess.parseNextPage(event)
+}
+export function encodeNextPage(lastEvaluateKey: any) {
+    if (!lastEvaluateKey)
+        return null
+    return encodeURIComponent(JSON.stringify(lastEvaluateKey))
 }
 

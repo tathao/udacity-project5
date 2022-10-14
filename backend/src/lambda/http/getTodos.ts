@@ -4,7 +4,12 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as middy from 'middy'
 import { cors, httpErrorHandler  } from 'middy/middlewares'
 
-import { getTodosForUser as getTodosForUser } from '../../businessLogic/todos'
+import {
+  encodeNextPage,
+  getTodosForUser as getTodosForUser,
+  parseLimitParam,
+  parseNextPageParam
+} from '../../businessLogic/todos'
 import { getUserId } from '../utils';
 
 import { createLogger } from '../../utils/logger'
@@ -15,14 +20,18 @@ export const handler = middy(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     // Write your code here
     try {
+      const limitDefault = 10
+      const nextPage = await parseNextPageParam(event)
+      const limit = await parseLimitParam(event,limitDefault) || limitDefault
       const userId = getUserId(event)
-      const todos = await getTodosForUser(userId);
+      const todos = await getTodosForUser(userId, limit, nextPage);
       logger.info("Get Todo by user ", userId);
 
       return {
         statusCode: 200,
         body: JSON.stringify({
-          "items": todos
+          "items": todos.items,
+          "nextPage": encodeNextPage(todos.nextPage)
         })
       };
     } catch (error) {
